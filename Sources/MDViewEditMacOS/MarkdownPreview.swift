@@ -78,7 +78,17 @@ struct MarkdownScrollTarget: Equatable {
     let requestID = UUID()
     let blockID: String
     let line: Int
+    let endLine: Int
+    let fraction: Double
     let source: Source
+
+    init(blockID: String, line: Int, endLine: Int? = nil, fraction: Double = 0, source: Source) {
+        self.blockID = blockID
+        self.line = line
+        self.endLine = endLine ?? line
+        self.fraction = max(0, min(1, fraction))
+        self.source = source
+    }
 
     static func == (lhs: MarkdownScrollTarget, rhs: MarkdownScrollTarget) -> Bool {
         lhs.requestID == rhs.requestID

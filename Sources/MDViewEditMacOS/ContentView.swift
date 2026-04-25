@@ -95,8 +95,14 @@ struct ContentView: View {
             }
 
             if showPreviewPane {
-                PreviewPane(scrollTarget: scrollTarget) { block in
-                    scrollTarget = MarkdownScrollTarget(blockID: block.id, line: block.startLine, source: .preview)
+                PreviewPane(scrollTarget: scrollTarget) { block, fraction in
+                    scrollTarget = MarkdownScrollTarget(
+                        blockID: block.id,
+                        line: block.startLine,
+                        endLine: block.endLine,
+                        fraction: fraction,
+                        source: .preview
+                    )
                 }
                     .frame(minWidth: 360)
             }
@@ -225,11 +231,15 @@ private struct HeaderView: View {
             }
             .disabled(!store.canSave)
 
+            HeaderSeparator()
+
             PaneToggleGroup(
                 showEditorPane: $showEditorPane,
                 showPreviewPane: $showPreviewPane,
                 showNavigationPane: $showNavigationPane
             )
+
+            HeaderSeparator()
 
             HStack(spacing: 4) {
                 Button {
@@ -253,7 +263,11 @@ private struct HeaderView: View {
             }
             .buttonStyle(.bordered)
 
+            HeaderSeparator()
+
             AppearanceButtonGroup(selection: $appearanceModeRaw)
+
+            HeaderSeparator()
 
             Button {
                 showingMarkdownHelp = true
@@ -366,6 +380,14 @@ private struct AppearanceButtonGroup: View {
     }
 }
 
+private struct HeaderSeparator: View {
+    var body: some View {
+        Rectangle()
+            .fill(Color.primary.opacity(0.12))
+            .frame(width: 1, height: 22)
+    }
+}
+
 private struct EditorPane: View {
     @Binding var text: String
     let fontSize: CGFloat
@@ -388,7 +410,7 @@ private struct EditorPane: View {
 private struct PreviewPane: View {
     @EnvironmentObject private var store: DocumentStore
     let scrollTarget: MarkdownScrollTarget?
-    let onBlockSelected: (MarkdownBlock) -> Void
+    let onBlockSelected: (MarkdownBlock, Double) -> Void
     @State private var previewScrollView: NSScrollView?
     @State private var headingPositions: [String: CGFloat] = [:]
 
@@ -428,6 +450,7 @@ private struct PreviewPane: View {
                                 scrollView: $previewScrollView,
                                 blocks: store.previewBlocks,
                                 blockPositions: headingPositions,
+                                contentTopInset: 18,
                                 onBlockSelected: onBlockSelected
                             )
                         )
@@ -442,7 +465,7 @@ private struct PreviewPane: View {
                         return
                     }
                     withAnimation(.easeInOut(duration: 0.18)) {
-                        proxy.scrollTo(target.blockID, anchor: UnitPoint(x: 0, y: 0.24))
+                        proxy.scrollTo(target.blockID, anchor: .top)
                     }
                 }
             }
@@ -457,7 +480,7 @@ private struct PreviewPane: View {
             return false
         }
 
-        let targetY = max(0, y - 200)
+        let targetY = max(0, y - 88)
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.18
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
@@ -472,7 +495,8 @@ private struct PreviewClickMonitor: NSViewRepresentable {
     @Binding var scrollView: NSScrollView?
     let blocks: [MarkdownBlock]
     let blockPositions: [String: CGFloat]
-    let onBlockSelected: (MarkdownBlock) -> Void
+    let contentTopInset: CGFloat
+    let onBlockSelected: (MarkdownBlock, Double) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -484,6 +508,7 @@ private struct PreviewClickMonitor: NSViewRepresentable {
             scrollView: scrollView,
             blocks: blocks,
             blockPositions: blockPositions,
+            contentTopInset: contentTopInset,
             onBlockSelected: onBlockSelected
         )
         context.coordinator.installMonitorIfNeeded()
@@ -495,6 +520,7 @@ private struct PreviewClickMonitor: NSViewRepresentable {
             scrollView: scrollView,
             blocks: blocks,
             blockPositions: blockPositions,
+            contentTopInset: contentTopInset,
             onBlockSelected: onBlockSelected
         )
         context.coordinator.installMonitorIfNeeded()
@@ -504,7 +530,8 @@ private struct PreviewClickMonitor: NSViewRepresentable {
         private weak var scrollView: NSScrollView?
         private var blocks: [MarkdownBlock] = []
         private var blockPositions: [String: CGFloat] = [:]
-        private var onBlockSelected: ((MarkdownBlock) -> Void)?
+        private var contentTopInset: CGFloat = 0
+        private var onBlockSelected: ((MarkdownBlock, Double) -> Void)?
         private var monitor: Any?
 
         deinit {
@@ -517,11 +544,13 @@ private struct PreviewClickMonitor: NSViewRepresentable {
             scrollView: NSScrollView?,
             blocks: [MarkdownBlock],
             blockPositions: [String: CGFloat],
-            onBlockSelected: @escaping (MarkdownBlock) -> Void
+            contentTopInset: CGFloat,
+            onBlockSelected: @escaping (MarkdownBlock, Double) -> Void
         ) {
             self.scrollView = scrollView
             self.blocks = blocks
             self.blockPositions = blockPositions
+            self.contentTopInset = contentTopInset
             self.onBlockSelected = onBlockSelected
         }
 
@@ -548,12 +577,16 @@ private struct PreviewClickMonitor: NSViewRepresentable {
             guard scrollView.contentView.bounds.contains(pointInClip) else { return }
 
             let documentY = scrollView.contentView.bounds.origin.y + pointInClip.y
-            guard let block = block(at: documentY) else { return }
+            guard let result = blockAndFraction(at: documentY) else { return }
 
-            onBlockSelected?(block)
+            onBlockSelected?(result.block, result.fraction)
         }
 
-        private func block(at y: CGFloat) -> MarkdownBlock? {
+        private func blockAndFraction(at documentY: CGFloat) -> (block: MarkdownBlock, fraction: Double)? {
+            // blockPositions are in "previewContent" (LazyVStack) coords.
+            // documentY from NSScrollView is offset by the top padding applied to MarkdownPreview.
+            let y = documentY - contentTopInset
+
             let sorted = blocks
                 .compactMap { block -> (MarkdownBlock, CGFloat)? in
                     guard let position = blockPositions[block.id] else { return nil }
@@ -562,7 +595,27 @@ private struct PreviewClickMonitor: NSViewRepresentable {
                 .sorted { $0.1 < $1.1 }
 
             guard !sorted.isEmpty else { return nil }
-            return sorted.last(where: { $0.1 <= y + 8 })?.0 ?? sorted.first?.0
+
+            var selectedIdx = 0
+            for (i, item) in sorted.enumerated() {
+                if item.1 <= y + 8 { selectedIdx = i } else { break }
+            }
+
+            let (block, blockY) = sorted[selectedIdx]
+
+            let endY: CGFloat
+            if selectedIdx + 1 < sorted.count {
+                endY = sorted[selectedIdx + 1].1
+            } else {
+                let docHeight = (scrollView?.documentView?.bounds.height ?? (blockY + contentTopInset + 200)) - contentTopInset
+                endY = docHeight
+            }
+
+            let blockHeight = max(1, endY - blockY)
+            let relativeY = max(0, min(blockHeight, y - blockY))
+            let fraction = Double(relativeY / blockHeight)
+
+            return (block, fraction)
         }
     }
 }

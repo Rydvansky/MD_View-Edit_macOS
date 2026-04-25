@@ -70,7 +70,7 @@ struct MarkdownTextView: NSViewRepresentable {
 
         if let scrollTarget, scrollTarget.source != .editor, context.coordinator.lastScrollTarget != scrollTarget {
             context.coordinator.lastScrollTarget = scrollTarget
-            context.coordinator.scroll(toLine: scrollTarget.line, in: scrollView)
+            context.coordinator.scroll(to: scrollTarget, in: scrollView)
         }
 
         context.coordinator.onLineSelected = onLineSelected
@@ -99,28 +99,69 @@ struct MarkdownTextView: NSViewRepresentable {
             publishSelectedLine(from: textView)
         }
 
-        func scroll(toLine targetLine: Int, in scrollView: NSScrollView) {
-            guard let textView else { return }
+        func scroll(to target: MarkdownScrollTarget, in scrollView: NSScrollView) {
+            performScroll(to: target, in: scrollView)
+            DispatchQueue.main.async { [weak self] in
+                self?.performScroll(to: target, in: scrollView)
+            }
+        }
 
-            let characterOffset = characterOffset(forLine: targetLine, in: textView.string)
-            let range = NSRange(location: min(characterOffset, (textView.string as NSString).length), length: 0)
+        private func performScroll(to target: MarkdownScrollTarget, in scrollView: NSScrollView) {
+            guard let textView,
+                  let layoutManager = textView.layoutManager,
+                  let container = textView.textContainer
+            else { return }
 
-            guard
-                let layoutManager = textView.layoutManager,
-                let textContainer = textView.textContainer
-            else {
-                textView.scrollRangeToVisible(range)
+            let clipWidth = scrollView.contentView.bounds.width
+            if clipWidth > 0, abs(container.size.width - clipWidth) > 0.5 {
+                container.size = NSSize(width: clipWidth, height: .greatestFiniteMagnitude)
+            }
+
+            layoutManager.ensureLayout(for: container)
+            _ = layoutManager.glyphRange(for: container)
+
+            guard layoutManager.numberOfGlyphs > 0 else {
+                scrollView.contentView.scroll(to: .zero)
+                scrollView.reflectScrolledClipView(scrollView.contentView)
                 return
             }
 
-            layoutManager.ensureLayout(for: textContainer)
-            let glyphRange = layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
-            var rect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
-            rect.origin.x += textView.textContainerOrigin.x
-            rect.origin.y += textView.textContainerOrigin.y
+            let source = textView.string
+            let nsString = source as NSString
+            let startChar = min(characterOffset(forLine: target.line, in: source), nsString.length)
+            let endCharRaw = characterOffset(forLine: target.endLine + 1, in: source)
+            let endChar = min(max(endCharRaw, startChar + 1), nsString.length)
 
-            let y = max(0, rect.minY - 200)
-            scrollView.contentView.scroll(to: NSPoint(x: 0, y: y))
+            let blockRange = NSRange(location: startChar, length: endChar - startChar)
+            let glyphBlockRange = layoutManager.glyphRange(forCharacterRange: blockRange, actualCharacterRange: nil)
+
+            let topY: CGFloat
+            let blockHeight: CGFloat
+
+            if glyphBlockRange.length > 0 {
+                var rect = layoutManager.boundingRect(forGlyphRange: glyphBlockRange, in: container)
+                rect.origin.y += textView.textContainerOrigin.y
+                topY = rect.minY
+                blockHeight = max(rect.height, 1)
+            } else {
+                let safeIndex = min(
+                    layoutManager.glyphIndexForCharacter(at: startChar),
+                    layoutManager.numberOfGlyphs - 1
+                )
+                var rect = layoutManager.lineFragmentRect(forGlyphAt: safeIndex, effectiveRange: nil)
+                rect.origin.y += textView.textContainerOrigin.y
+                topY = rect.minY
+                blockHeight = max(rect.height, 1)
+            }
+
+            let anchorY = topY + CGFloat(target.fraction) * blockHeight
+            let usedRect = layoutManager.usedRect(for: container)
+            let docHeight = usedRect.height + textView.textContainerInset.height * 2
+            let clipHeight = scrollView.contentView.bounds.height
+            let maxY = max(0, docHeight - clipHeight)
+            let targetY = max(0, min(maxY, anchorY - 120))
+
+            scrollView.contentView.scroll(to: NSPoint(x: 0, y: targetY))
             scrollView.reflectScrolledClipView(scrollView.contentView)
         }
 

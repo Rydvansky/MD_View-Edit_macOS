@@ -3,47 +3,48 @@ import SwiftUI
 struct MarkdownHelpView: View {
     @Environment(\.dismiss) private var dismiss
 
-    private let basics: [MarkdownTip] = [
-        MarkdownTip(markdown: "# Heading 1", result: "Largest heading"),
-        MarkdownTip(markdown: "## Heading 2", result: "Section heading"),
-        MarkdownTip(markdown: "### Heading 3", result: "Smaller heading"),
-        MarkdownTip(markdown: "**bold**", result: "Bold text"),
-        MarkdownTip(markdown: "*italic*", result: "Italic text"),
-        MarkdownTip(markdown: "`code`", result: "Inline code"),
-        MarkdownTip(markdown: "[title](https://example.com)", result: "Link"),
-        MarkdownTip(markdown: "> quote", result: "Block quote")
-    ]
+    private let items: [HelpItem] = [
+        .heading("Headings"),
+        .tip("# Heading 1"),
+        .tip("## Heading 2"),
+        .tip("### Heading 3"),
+        .tip("#### Heading 4"),
 
-    private let structure: [MarkdownTip] = [
-        MarkdownTip(markdown: "- item", result: "Bulleted list"),
-        MarkdownTip(markdown: "1. item", result: "Numbered list"),
-        MarkdownTip(markdown: "- [ ] task", result: "Open task"),
-        MarkdownTip(markdown: "- [x] task", result: "Done task"),
-        MarkdownTip(markdown: "---", result: "Divider"),
-        MarkdownTip(markdown: "```swift\nlet app = \"native\"\n```", result: "Code block")
+        .heading("Text"),
+        .tip("**bold text**"),
+        .tip("*italic text*"),
+        .tip("***bold and italic***"),
+        .tip("~~strikethrough~~"),
+        .tip("`inline code`"),
+        .tip("[Apple](https://apple.com)"),
+
+        .heading("Lists"),
+        .tip("- First item\n- Second item\n- Third item"),
+        .tip("1. First step\n2. Second step\n3. Third step"),
+        .tip("- [x] Done task\n- [ ] Open task"),
+
+        .heading("Blocks"),
+        .tip("> A quoted passage"),
+        .tip("---"),
+        .tip("```swift\nlet app = \"native\"\nprint(app)\n```"),
+
+        .heading("App Shortcuts"),
+        .shortcut("⌘ O", "Open file"),
+        .shortcut("⌘ S", "Save"),
+        .shortcut("⌘ +", "Bigger text"),
+        .shortcut("⌘ −", "Smaller text")
     ]
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Image(systemName: "keyboard.badge.ellipsis")
-                    .font(.system(size: 34, weight: .semibold))
-                    .foregroundStyle(.tint)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Markdown Formatting")
-                        .font(.title2.weight(.bold))
-                    Text("Quick patterns for clean local notes.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-
+            HStack {
+                Text("Markdown Guide")
+                    .font(.title2.weight(.bold))
                 Spacer()
-
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "xmark")
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.borderless)
                 .help("Close")
@@ -53,98 +54,203 @@ struct MarkdownHelpView: View {
             Divider()
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    TipSection(title: "Text", tips: basics)
-                    TipSection(title: "Structure", tips: structure)
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                        itemView(item)
+                            .padding(.vertical, rowPadding(for: item))
 
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("App Hotkeys")
-                            .font(.headline)
-
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 10)], spacing: 10) {
-                            HotkeyRow(keys: "Command O", action: "Open file")
-                            HotkeyRow(keys: "Command S", action: "Save")
-                            HotkeyRow(keys: "Command +", action: "Bigger text")
-                            HotkeyRow(keys: "Command -", action: "Smaller text")
+                        if shouldShowDivider(after: index) {
+                            Rectangle()
+                                .fill(Color.primary.opacity(0.08))
+                                .frame(height: 1)
                         }
                     }
                 }
                 .padding(22)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
-}
 
-private struct TipSection: View {
-    let title: String
-    let tips: [MarkdownTip]
+    private func rowPadding(for item: HelpItem) -> CGFloat {
+        switch item {
+        case .heading: 10
+        default: 8
+        }
+    }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+    private func shouldShowDivider(after index: Int) -> Bool {
+        guard index < items.count - 1 else { return false }
+        let nextIsHeading: Bool = {
+            if case .heading = items[index + 1] { return true }
+            return false
+        }()
+        if case .heading = items[index] { return false }
+        return !nextIsHeading
+    }
+
+    @ViewBuilder
+    private func itemView(_ item: HelpItem) -> some View {
+        switch item {
+        case let .heading(title):
             Text(title)
                 .font(.headline)
+                .padding(.top, 6)
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 270), spacing: 10)], spacing: 10) {
-                ForEach(tips) { tip in
-                    TipCard(tip: tip)
-                }
+        case let .tip(source):
+            HStack(alignment: .top, spacing: 18) {
+                Text(source)
+                    .font(.system(size: 13, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                TipPreview(source: source)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+        case let .shortcut(keys, action):
+            HStack(spacing: 14) {
+                Text(keys)
+                    .font(.system(.body, design: .monospaced).weight(.semibold))
+                    .frame(minWidth: 70, alignment: .leading)
+                Text(action)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
             }
         }
     }
 }
 
-private struct TipCard: View {
-    let tip: MarkdownTip
+// MARK: - Help item model
+
+private enum HelpItem: Identifiable {
+    case heading(String)
+    case tip(String)
+    case shortcut(String, String)
+
+    var id: String {
+        switch self {
+        case let .heading(text): "h-\(text)"
+        case let .tip(text): "t-\(text)"
+        case let .shortcut(keys, action): "s-\(keys)-\(action)"
+        }
+    }
+}
+
+// MARK: - Inline markdown renderer (no cards, no boxes)
+
+private struct TipPreview: View {
+    let source: String
+
+    private var blocks: [MarkdownBlock] { MarkdownParser.parse(source) }
+    private let size: CGFloat = 14
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(tip.markdown)
-                .font(.system(.body, design: .monospaced))
-                .textSelection(.enabled)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
+        VStack(alignment: .leading, spacing: 5) {
+            ForEach(blocks) { block in
+                TipBlockView(block: block, fontSize: size)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct TipBlockView: View {
+    let block: MarkdownBlock
+    let fontSize: CGFloat
+
+    var body: some View {
+        switch block.kind {
+
+        case let .heading(level, text):
+            Text(text)
+                .font(.system(size: headingSize(level), weight: level <= 2 ? .bold : .semibold))
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
 
-            Text(tip.result)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .padding(12)
-        .background(.background, in: RoundedRectangle(cornerRadius: 8))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(.quaternary)
+        case let .paragraph(text):
+            Text(inlineAttr(text))
+                .font(.system(size: fontSize))
+                .lineSpacing(3)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+        case let .list(items):
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Array(items.prefix(6).enumerated()), id: \.offset) { i, item in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Group {
+                            if let checked = item.checked {
+                                Image(systemName: checked ? "checkmark.square.fill" : "square")
+                                    .foregroundColor(checked ? .accentColor : .secondary)
+                            } else {
+                                Text(item.isOrdered ? "\(i + 1)." : "•")
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .font(.system(size: fontSize))
+                        .frame(width: 22, alignment: .center)
+
+                        Text(inlineAttr(item.text))
+                            .font(.system(size: fontSize))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+        case let .quote(lines):
+            HStack(alignment: .top, spacing: 10) {
+                Rectangle()
+                    .fill(.secondary.opacity(0.35))
+                    .frame(width: 3)
+                VStack(alignment: .leading, spacing: 3) {
+                    ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                        Text(inlineAttr(line.text.isEmpty ? " " : line.text))
+                            .font(.system(size: fontSize))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+        case let .code(language, text):
+            VStack(alignment: .leading, spacing: 2) {
+                if let lang = language, !lang.isEmpty {
+                    Text(lang.uppercased())
+                        .font(.caption2.monospaced().weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                Text(text)
+                    .font(.system(size: max(11, fontSize - 1), design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+        case .divider:
+            Rectangle()
+                .fill(.secondary.opacity(0.4))
+                .frame(height: 1)
+                .padding(.vertical, 4)
+
+        default:
+            EmptyView()
         }
     }
-}
 
-private struct HotkeyRow: View {
-    let keys: String
-    let action: String
-
-    var body: some View {
-        HStack {
-            Text(keys)
-                .font(.system(.caption, design: .monospaced).weight(.semibold))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
-            Spacer()
-            Text(action)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .padding(10)
-        .overlay {
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(.quaternary)
+    private func headingSize(_ level: Int) -> CGFloat {
+        switch level {
+        case 1: fontSize + 14
+        case 2: fontSize + 9
+        case 3: fontSize + 5
+        case 4: fontSize + 3
+        default: fontSize + 1
         }
     }
-}
 
-private struct MarkdownTip: Identifiable {
-    let id = UUID()
-    let markdown: String
-    let result: String
+    private func inlineAttr(_ text: String) -> AttributedString {
+        MarkdownInlineStyler.inline(text, fontSize: fontSize)
+    }
 }

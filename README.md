@@ -23,8 +23,7 @@ For end users, download the latest `MD_View-Edit_macOS-vX.Y.Z.dmg` or `MD_View-E
 
 For normal installation, open the `.dmg` and drag the app into `Applications`.
 
-⚠️ Note: I do not currently have an Apple Developer license. macOS may warn that the app is from an unidentified developer, and you may need to allow it manually in **System Settings > Privacy & Security** or right-click the app and choose **Open**. This is expected for unsigned open source builds.
-
+Important: I do not currently have an Apple Developer license, so public builds are not Apple-notarized. macOS may warn that the app is from an unidentified developer, and you may need to allow it manually in **System Settings > Privacy & Security** or right-click the app and choose **Open**. This is expected for unsigned open source builds.
 
 ## Requirements For Building
 
