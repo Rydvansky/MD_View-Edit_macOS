@@ -4,6 +4,11 @@ A minimal native macOS Markdown viewer and editor for offline local files. No El
 
 Current version: `v1.0.0`
 
+
+![Screenshot](https://github.com/Rydvansky/MD_View-Edit_macOS/blob/main/MD_view-edit1.png)
+![Screenshot-dark](https://github.com/Rydvansky/MD_View-Edit_macOS/blob/main/MD_view-edit2.png)
+![Screenshot-info](https://github.com/Rydvansky/MD_View-Edit_macOS/blob/main/md-info.png)
+
 ## Features
 
 - Open `.md`, `.markdown`, `.mdown`, `.mkd`, and `.txt` files
