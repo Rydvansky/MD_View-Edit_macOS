@@ -25,6 +25,9 @@ For normal installation, open the `.dmg` and drag the app into `Applications`.
 
 Important: I do not currently have an Apple Developer license, so public builds are not Apple-notarized. macOS may warn that the app is from an unidentified developer, and you may need to allow it manually in **System Settings > Privacy & Security** or right-click the app and choose **Open**. This is expected for unsigned open source builds.
 
+>⚠️ Note: I do not currently have an Apple Developer license, so public builds are not Apple-notarized. macOS may warn that the app is from an unidentified developer, and you may need to allow it manually in **System Settings > Privacy & Security** or right-click the app and choose **Open**. This is expected for unsigned open source builds.
+
+
 ## Requirements For Building
 
 - macOS 13 or newer
