@@ -435,25 +435,31 @@ private struct PreviewPane: View {
             }
 
             ScrollViewReader { proxy in
-                ScrollView {
-                    MarkdownPreview(
-                        blocks: store.previewBlocks,
-                        fontSize: store.fontSize,
-                        referenceLinks: store.referenceLinks,
-                        baseURL: store.documentBaseURL
-                    )
-                        .padding(.horizontal, 22)
-                        .padding(.vertical, 18)
-                        .background(ScrollViewAccessor(scrollView: $previewScrollView))
-                        .background(
-                            PreviewClickMonitor(
-                                scrollView: $previewScrollView,
-                                blocks: store.previewBlocks,
-                                blockPositions: headingPositions,
-                                contentTopInset: 18,
-                                onBlockSelected: onBlockSelected
-                            )
+                GeometryReader { geometry in
+                    let contentWidth = max(0, geometry.size.width - 44)
+
+                    ScrollView {
+                        MarkdownPreview(
+                            blocks: store.previewBlocks,
+                            fontSize: store.fontSize,
+                            referenceLinks: store.referenceLinks,
+                            baseURL: store.documentBaseURL,
+                            availableWidth: contentWidth
                         )
+                            .frame(width: contentWidth, alignment: .leading)
+                            .padding(.horizontal, 22)
+                            .padding(.vertical, 18)
+                            .background(ScrollViewAccessor(scrollView: $previewScrollView))
+                            .background(
+                                PreviewClickMonitor(
+                                    scrollView: $previewScrollView,
+                                    blocks: store.previewBlocks,
+                                    blockPositions: headingPositions,
+                                    contentTopInset: 18,
+                                    onBlockSelected: onBlockSelected
+                                )
+                            )
+                    }
                 }
                 .onPreferenceChange(HeadingPositionPreferenceKey.self) { positions in
                     headingPositions = positions

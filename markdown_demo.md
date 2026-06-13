@@ -190,6 +190,22 @@ console.log(loremIpsum(10));
 | ~~Strike~~    | Partial            | Not all renderers       |
 | Images        | Supported          | `![alt](url)`           |
 
+### Wrapping Table
+
+| Item | Owner | Details |
+|------|-------|---------|
+| Preview table cells | Product review | This cell intentionally contains a long sentence so the preview can show the full content by wrapping it across multiple lines instead of clipping the text. |
+| Narrow visible window | QA | Resize the app window or hide the editor pane to confirm that row height grows while the table keeps fitting inside the preview width. |
+| Markdown formatting | Engineering | Long cells should still render **bold text**, *italic text*, and `inline code` while preserving readable spacing and selection. |
+
+### Dense Wide Table
+
+| Phase | Goal | Risk | Decision | Notes |
+|:------|:-----|:-----|:---------|:------|
+| Discovery | Confirm how table layout behaves when several columns compete for the same visible width. | Very long text can create tall rows, which is expected for full-content display. | Keep wrapping enabled. | This row is deliberately wordy to test whether every column expands vertically without hiding content. |
+| Implementation | Remove fixed maximum cell width and make columns share the available preview width. | Columns become narrower when there are many of them. | Prefer complete content over horizontal scrolling. | The table should stay within the visible preview instead of forcing a sideways scroll. |
+| Verification | Check left, center, and right alignment with wrapped text. | Alignment can look odd if the column is extremely narrow. | Preserve Markdown alignment markers. | Use this table as a quick regression check after layout changes. |
+
 ---
 
 ## Links & Images
