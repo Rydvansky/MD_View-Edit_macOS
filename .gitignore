@@ -1,0 +1,10 @@
+.DS_Store
+**/.DS_Store
+
+.build/
+dist/
+
+AGENTS.md
+agent.md
+Agent.md
+agents.md

@@ -605,6 +605,7 @@ struct MarkdownPreview: View {
     let fontSize: CGFloat
     let referenceLinks: [String: String]
     let baseURL: URL?
+    let availableWidth: CGFloat
 
     var body: some View {
         LazyVStack(alignment: .leading, spacing: 0) {
@@ -613,7 +614,8 @@ struct MarkdownPreview: View {
                     block: block,
                     fontSize: fontSize,
                     referenceLinks: referenceLinks,
-                    baseURL: baseURL
+                    baseURL: baseURL,
+                    availableWidth: availableWidth
                 )
                     .id(block.id)
                     .contentShape(Rectangle())
@@ -640,6 +642,7 @@ private struct MarkdownBlockView: View {
     let fontSize: CGFloat
     let referenceLinks: [String: String]
     let baseURL: URL?
+    let availableWidth: CGFloat
 
     var body: some View {
         switch block.kind {
@@ -665,7 +668,12 @@ private struct MarkdownBlockView: View {
                 .padding(.bottom, 12)
 
         case let .table(table):
-            tableView(table)
+            MarkdownTableView(
+                table: table,
+                fontSize: fontSize,
+                referenceLinks: referenceLinks,
+                availableWidth: availableWidth
+            )
                 .padding(.bottom, 18)
 
         case let .quote(lines):
@@ -871,68 +879,6 @@ private struct MarkdownBlockView: View {
         return cleaned.split(separator: " ").first.map(String.init) ?? cleaned
     }
 
-    private func tableView(_ table: MarkdownTable) -> some View {
-        ScrollView(.horizontal, showsIndicators: true) {
-            Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
-                GridRow {
-                    ForEach(Array(table.columns.enumerated()), id: \.offset) { _, column in
-                        tableCell(
-                            text: column.title,
-                            alignment: column.alignment,
-                            isHeader: true
-                        )
-                    }
-                }
-
-                ForEach(Array(table.rows.enumerated()), id: \.offset) { _, row in
-                    GridRow {
-                        ForEach(table.columns.indices, id: \.self) { columnIndex in
-                            tableCell(
-                                text: columnIndex < row.count ? row[columnIndex] : "",
-                                alignment: table.columns[columnIndex].alignment,
-                                isHeader: false
-                            )
-                        }
-                    }
-                }
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(.quaternary)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-        }
-    }
-
-    private func tableCell(text: String, alignment: MarkdownTableAlignment, isHeader: Bool) -> some View {
-        Text(inline(text.isEmpty ? " " : text))
-            .font(.system(size: fontSize, weight: isHeader ? .semibold : .regular))
-            .lineSpacing(4)
-            .textSelection(.enabled)
-            .frame(minWidth: 120, maxWidth: 260, alignment: swiftUIAlignment(alignment))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
-            .background(isHeader ? Color.secondary.opacity(0.12) : Color.clear)
-            .overlay(alignment: .trailing) {
-                Rectangle()
-                    .fill(.quaternary)
-                    .frame(width: 1)
-            }
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(.quaternary)
-                    .frame(height: 1)
-            }
-    }
-
-    private func swiftUIAlignment(_ alignment: MarkdownTableAlignment) -> Alignment {
-        switch alignment {
-        case .left: .leading
-        case .center: .center
-        case .right: .trailing
-        }
-    }
-
     private func inline(_ markdown: String) -> AttributedString {
         MarkdownInlineStyler.inline(markdown, fontSize: fontSize, references: referenceLinks)
     }
@@ -957,6 +903,149 @@ private struct MarkdownBlockView: View {
 
     private func headingBottomPadding(_ level: Int) -> CGFloat {
         level <= 2 ? 10 : 7
+    }
+}
+
+private struct MarkdownTableView: View {
+    let table: MarkdownTable
+    let fontSize: CGFloat
+    let referenceLinks: [String: String]
+    let availableWidth: CGFloat
+
+    private var columnCount: Int {
+        max(table.columns.count, 1)
+    }
+
+    private var fallbackColumnWidth: CGFloat {
+        160
+    }
+
+    private var tableWidth: CGFloat {
+        availableWidth > 1 ? availableWidth : fallbackColumnWidth * CGFloat(columnCount)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            tableGrid(width: tableWidth)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func tableGrid(width tableWidth: CGFloat) -> some View {
+        let columnWidth = tableWidth / CGFloat(columnCount)
+
+        return VStack(alignment: .leading, spacing: 0) {
+            MarkdownTableRowView(
+                cells: table.columns.map(\.title),
+                alignments: table.columns.map(\.alignment),
+                columnWidth: columnWidth,
+                fontSize: fontSize,
+                referenceLinks: referenceLinks,
+                isHeader: true
+            )
+
+            ForEach(Array(table.rows.enumerated()), id: \.offset) { _, row in
+                MarkdownTableRowView(
+                    cells: table.columns.indices.map { columnIndex in
+                        columnIndex < row.count ? row[columnIndex] : ""
+                    },
+                    alignments: table.columns.map(\.alignment),
+                    columnWidth: columnWidth,
+                    fontSize: fontSize,
+                    referenceLinks: referenceLinks,
+                    isHeader: false
+                )
+            }
+        }
+        .frame(width: tableWidth, alignment: .leading)
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(.quaternary)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+private struct MarkdownTableRowView: View {
+    let cells: [String]
+    let alignments: [MarkdownTableAlignment]
+    let columnWidth: CGFloat
+    let fontSize: CGFloat
+    let referenceLinks: [String: String]
+    let isHeader: Bool
+
+    private var rowWidth: CGFloat {
+        columnWidth * CGFloat(max(cells.count, 1))
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 0) {
+            ForEach(Array(cells.enumerated()), id: \.offset) { index, text in
+                tableCell(
+                    text: text,
+                    alignment: index < alignments.count ? alignments[index] : .left
+                )
+            }
+        }
+        .frame(width: rowWidth, alignment: .leading)
+        .background(isHeader ? Color.secondary.opacity(0.12) : Color.clear)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(.quaternary)
+                .frame(height: 1)
+        }
+        .overlay {
+            verticalSeparators
+        }
+    }
+
+    private var verticalSeparators: some View {
+        GeometryReader { _ in
+            ZStack(alignment: .leading) {
+                ForEach(1..<max(cells.count, 1), id: \.self) { index in
+                    Rectangle()
+                        .fill(.quaternary)
+                        .frame(width: 1)
+                        .offset(x: columnWidth * CGFloat(index))
+                }
+            }
+        }
+        .frame(width: rowWidth)
+    }
+
+    private func tableCell(text: String, alignment: MarkdownTableAlignment) -> some View {
+        let horizontalPadding = min(12, max(4, columnWidth * 0.12))
+
+        return Text(inline(text.isEmpty ? " " : text))
+            .font(.system(size: fontSize, weight: isHeader ? .semibold : .regular))
+            .lineLimit(nil)
+            .lineSpacing(4)
+            .multilineTextAlignment(textAlignment(alignment))
+            .textSelection(.enabled)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, horizontalPadding)
+            .padding(.vertical, 9)
+            .frame(width: columnWidth, alignment: swiftUIAlignment(alignment))
+    }
+
+    private func swiftUIAlignment(_ alignment: MarkdownTableAlignment) -> Alignment {
+        switch alignment {
+        case .left: .leading
+        case .center: .center
+        case .right: .trailing
+        }
+    }
+
+    private func textAlignment(_ alignment: MarkdownTableAlignment) -> TextAlignment {
+        switch alignment {
+        case .left: .leading
+        case .center: .center
+        case .right: .trailing
+        }
+    }
+
+    private func inline(_ markdown: String) -> AttributedString {
+        MarkdownInlineStyler.inline(markdown, fontSize: fontSize, references: referenceLinks)
     }
 }
 

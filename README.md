@@ -1,8 +1,8 @@
-# MD_View-Edit_macOS v1.0.0
+# MD_View-Edit_macOS v1.0.1
 
 A minimal native macOS Markdown viewer and editor for offline local files. No Electron, no server, no network requirement.
 
-Current version: `v1.0.0`
+Current version: `v1.0.1`
 
 
 ![Screenshot](https://github.com/Rydvansky/MD_View-Edit_macOS/blob/main/MD_view-edit1.png)
@@ -44,8 +44,8 @@ The project version is stored in [`VERSION`](VERSION).
 Release files include the version in their names:
 
 ```text
-MD_View-Edit_macOS-v1.0.0.zip
-MD_View-Edit_macOS-v1.0.0.dmg
+MD_View-Edit_macOS-v1.0.1.zip
+MD_View-Edit_macOS-v1.0.1.dmg
 ```
 
 The macOS app bundle version is written to `CFBundleShortVersionString` during packaging.
@@ -78,23 +78,23 @@ chmod +x scripts/package_app.sh
 The app bundle will be created here:
 
 ```text
-dist/MD_View-Edit_macOS-v1.0.0.app
+dist/MD_View-Edit_macOS-v1.0.1.app
 ```
 
 The script also creates a Finder-friendly archive:
 
 ```text
-dist/MD_View-Edit_macOS-v1.0.0.zip
+dist/MD_View-Edit_macOS-v1.0.1.zip
 ```
 
 It also creates a drag-to-install disk image:
 
 ```text
-dist/MD_View-Edit_macOS-v1.0.0.dmg
+dist/MD_View-Edit_macOS-v1.0.1.dmg
 ```
 
 For normal installation, open the `.dmg` and drag the app into `Applications`.
-For versioned releases, the app bundle name includes the version, for example `MD_View-Edit_macOS-v1.0.0.app`.
+For versioned releases, the app bundle name includes the version, for example `MD_View-Edit_macOS-v1.0.1.app`.
 
 ## Unsigned Local Build
 
@@ -102,7 +102,7 @@ Use this for personal/offline use on your own Mac:
 
 ```bash
 ./scripts/package_app.sh
-open "dist/MD_View-Edit_macOS-v1.0.0.app"
+open "dist/MD_View-Edit_macOS-v1.0.1.app"
 ```
 
 This creates a local ad-hoc signed app bundle, which keeps macOS resource validation happy but is still not Developer ID notarized.
@@ -126,7 +126,7 @@ export APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"
 
 The script:
 
-1. Builds and packages `dist/MD_View-Edit_macOS-v1.0.0.app`
+1. Builds and packages `dist/MD_View-Edit_macOS-v1.0.1.app`
 2. Signs the app with hardened runtime
 3. Zips it for notarization
 4. Submits it to Apple notarization
